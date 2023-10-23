@@ -35,8 +35,8 @@ is_root() {
 
 # Function to install dependencies
 install_dependencies() {
-    iptables -A INPUT -p tcp --dport 80 -j ACCEPT &&  iptables -A INPUT -p tcp --dport 22 -j ACCEPT &&  iptables -A INPUT -p tcp --dport 443 -j ACCEPT
     log "Installing dependencies..."
+     iptables -A INPUT -p tcp --dport 80 -j ACCEPT &&  iptables -A INPUT -p tcp --dport 22 -j ACCEPT &&  iptables -A INPUT -p tcp --dport 443 -j ACCEPT
     sudo apt update
     sudo apt install -y lsb-release curl mysql-client certbot iptables curl wget sudo nano zip ufw
     log "Dependencies installed."
@@ -247,17 +247,15 @@ install_shopware() {
         # Inform the user that the file has been created
         echo "Credentials have been saved in credentials.txt"
         sleep 5
-
-        echo -e "\e[92mChanges have been made. You can access the 2nd Shopware installer at https://$domain_name/installer\e[0m"
-            while true; do
-                    read -p "After installing Shopware from the 2nd installer, press 'y': " user_input
-                    if [ "$user_input" == "y" ]; then
-                        break
-                    fi
-            done
-            break
-        fi
+        break
     done
+    echo -e "\e[92mChanges have been made. You can access the 2nd Shopware installer at https://$domain_name/installer\e[0m"
+    while true; do
+        read -p "After installing Shopware from the 2nd installer, press 'y': " user_input
+          if [ "$user_input" == "y" ]; then
+             break
+          fi
+     done
 
 }
 
