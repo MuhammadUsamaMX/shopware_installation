@@ -184,6 +184,10 @@ install_shopware() {
         allow from all
     </Directory>
 
+    #Redirect requests from the /public URL path to /
+    RewriteEngine On
+    RewriteRule ^/public(/.*)?$ /$1 [R=301,L]
+
     # For PHP 8.1
     <FilesMatch \.php$>
         SetHandler \"proxy:unix:/run/php/php8.1-fpm.sock|fcgi://localhost/\"
