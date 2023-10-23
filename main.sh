@@ -229,33 +229,38 @@ install_shopware() {
     
     
     while true; do
-    
         echo "After the first installer, press 'yes' to remove the 'public' after $domain_name that is not changeable after installation"
-    
-        sudo sed -i "s/DocumentRoot \/var\/www\/$domain_name/DocumentRoot \/var\/www\/$domain_name\/public/g" /etc/apache2/sites-available/$domain_name-le-ssl.conf
-        sudo sed -i "s/DocumentRoot \/var\/www\/$domain_name/DocumentRoot \/var\/www\/$domain_name\/public/g" /etc/apache2/sites-available/$domain_name.conf
+        
+        # Update the configuration files
+        sudo sed -i "s|DocumentRoot /var/www/$domain_name|DocumentRoot /var/www/$domain_name/public|g" /etc/apache2/sites-available/$domain_name-le-ssl.conf
+        sudo sed -i "s|DocumentRoot /var/www/$domain_name|DocumentRoot /var/www/$domain_name/public|g" /etc/apache2/sites-available/$domain_name.conf
+        
+        # Restart Apache
         sudo systemctl restart apache2
         clear
-        #print DB Details
+
+        # Print DB Details
         echo -e "\e[92mDatabase Name: shopware\e[0m"
         echo -e "\e[92mDatabase User: shopware\e[0m"
         echo -e "\e[92mDatabase Password: $db_password\e[0m"
-            
+
         # Create the credentials.txt file
         echo -e "# Print DB Details\nDatabase Name: shopware\nDatabase User: shopware\nDatabase Password: $db_password" > /root/credentials.txt
-            
+
         # Inform the user that the file has been created
         echo "Credentials have been saved in credentials.txt"
         sleep 5
         break
     done
+
     echo -e "\e[92mChanges have been made. You can access the 2nd Shopware installer at https://$domain_name/installer\e[0m"
+
     while true; do
         read -p "After installing Shopware from the 2nd installer, press 'y': " user_input
-          if [ "$user_input" == "y" ]; then
-             break
-          fi
-     done
+        if [ "$user_input" == "y" ]; then
+            break
+        fi
+    done
 
 }
 
