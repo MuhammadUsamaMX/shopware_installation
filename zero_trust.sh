@@ -38,8 +38,8 @@ install_dependencies() {
     log "Installing dependencies..."
     iptables -A INPUT -p tcp --dport 80 -j DROP &&  iptables -A INPUT -p tcp --dport 22 -j ACCEPT &&  iptables -A INPUT -p tcp --dport 443 -j DROP && iptables -A INPUT -p tcp --dport 3306 -j DROP
     sudo apt update
-    sudo apt install -y lsb-release curl openssl iptables curl wget sudo nano zip ufw apache2 mariadb-server php-fpm php-mysql php-curl php-dom php-json php-zip php-gd php-xml php-mbstring php-intl php-opcache
-    sudo apt install -y mysql-client
+    sudo apt install -y lsb-release curl openssl iptables curl wget sudo nano zip ufw apache2 php-fpm php-mysql php-curl php-dom php-json php-zip php-gd php-xml php-mbstring php-intl php-opcache
+    sudo apt install -y mysql-client mariadb-server
     log "Dependencies installed."
     sleep 3
     clear
