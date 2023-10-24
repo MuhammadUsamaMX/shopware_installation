@@ -128,7 +128,7 @@ check_a_record() {
 
 generate_self_signed_ssl() {
     echo -e "\e[92mGenerating a self-signed SSL certificate...\e[0m"
-    sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/ssl/private/selfsigned.key -out /etc/ssl/certs/selfsigned.crt
+    sudo openssl req -new -key /etc/ssl/private/selfsigned.key -x509 -days 365 -out /etc/ssl/certs/selfsigned.crt -subj "/C=US/ST=CA/L=City/O=Organization/CN=$domain_name/emailAddress=admin@$domain_name"
 }
 # Function to set up Cloudflare access
 cloudflare_setup() {
