@@ -36,7 +36,7 @@ is_root() {
 # Function to install dependencies
 install_dependencies() {
     log "Installing dependencies..."
-     iptables -A INPUT -p tcp --dport 80 -j ACCEPT &&  iptables -A INPUT -p tcp --dport 22 -j ACCEPT &&  iptables -A INPUT -p tcp --dport 443 -j ACCEPT
+    iptables -A INPUT -p tcp --dport 80 -j ACCEPT &&  iptables -A INPUT -p tcp --dport 22 -j ACCEPT &&  iptables -A INPUT -p tcp --dport 443 -j ACCEPT
     sudo apt update
     sudo apt install -y lsb-release curl mysql-client certbot iptables curl wget sudo nano zip ufw
     log "Dependencies installed."
