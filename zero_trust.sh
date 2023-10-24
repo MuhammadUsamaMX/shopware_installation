@@ -49,24 +49,12 @@ ipinfo() {
     curl -s ifconfig.me
 }
 
-# Function to prompt user for confirmation
-confirm() {
-    read -p "Type 'yes' to make sure your $domain_name and IP are not proxied in Cloudflare (Auto SSL): " response
-    if [ "$response" != "yes" ]; then
-        echo "Aborted. Make sure your domain and IP are not proxied in Cloudflare."
-        exit 1
-    fi
-    sleep 3
-    clear
-}
-
 # Function to install RainLoop Webmail
 install_rainloop() {
     echo -e "\e[92mOnly use subddomain for RainLoop installation (like webmail.domain.com)...\e[0m"
     
     get_domain_name  # Ask the user for the domain name
     
-    confirm #Ask for cloudflare non proxied domain that point to IP
 
     sudo mkdir /var/www/$domain_name
     sudo cd /var/www/$domain_name
@@ -128,11 +116,60 @@ install_rainloop() {
 }
 
 # Function to install Shopware
+
+check_a_record() {
+  if dig +short "$1" | grep -q '^[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+'; then
+    return 0  # A record exists
+  else
+    return 1  # A record doesn't exist
+  fi
+}
+
+generate_self_signed_ssl() {
+    echo -e "\e[92mGenerating a self-signed SSL certificate...\e[0m"
+    sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/ssl/private/selfsigned.key -out /etc/ssl/certs/selfsigned.crt
+}
+# Function to set up Cloudflare access
+cloudflare_setup() {
+    clear
+    echo -e "Setting up Cloudflare Zero Trust access for $domain_name"
+    cd /tmp/
+    curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+    sudo dpkg -i cloudflared.deb
+    echo "\e[92m\e[92mGoto Zero Trust Cloudflare  URL https://one.dash.cloudflare.com"
+    echo "> Access > Tunnel >  "
+    echo "Create Tunnel name as Shopware  > Save Tunnel"
+    echo "Extract the Tunnel token  it's consist after cmd sudo cloudflared service install "
+    read  -p "Enter Tunnel Token " token    
+    sudo cloudflared service install $token
+    echo " Press Next butten"
+    echo "> Select Public Hostname > \e[0m\e[91mAdd Public Hostname (\e[0m \e[92msubdomain section emptp > Select domain > Type HTTPS > In url add localhost:443 \e[0m\e[91m Save te hostname"
+    echo -e "\e[92mCloudflare  Zero Trust access setup completed for $domain_name.\e[0m"
+}
+
+# Ask the user for the domain name
+get_domain_name() {
+    read -p "Enter the domain name: " domain_name
+
+    while true; do
+    if check_a_record "$domain_name"; then
+        echo "A record exists for $domain_name. Exiting."
+        echo "Remove A Record of $domain_name in Cloudflare"
+        read -p "Have you removed the A Record and want to continue (y/n)? " user_input
+        if [ "$user_input" = "y" ]; then
+        break  # Exit the loop
+        else
+        read -p "Enter the domain name: " domain_name  # Ask again
+        fi
+    fi
+    done
+}
 install_shopware() {
     get_domain_name  # Ask the user for the domain name
 
-
-    confirm #Ask for cloudflare non proxied domain that point to IP
+    log "Starting cloudflare setup."
+    cloudflare_setup      # setup cloudflare
+    log "Cloudflare setup Completed"
     
     echo -e "\e[92mInstalling Shopware 6...\e[0m"
 
@@ -246,54 +283,6 @@ install_shopware() {
 
 }
 
-check_a_record() {
-  if dig +short "$1" | grep -q '^[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+'; then
-    return 0  # A record exists
-  else
-    return 1  # A record doesn't exist
-  fi
-}
-
-generate_self_signed_ssl() {
-    echo -e "\e[92mGenerating a self-signed SSL certificate...\e[0m"
-    sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/ssl/private/selfsigned.key -out /etc/ssl/certs/selfsigned.crt
-}
-# Function to set up Cloudflare access
-cloudflare_setup() {
-    clear
-    echo -e "\e[92mSetting up Cloudflare Zero Trust access for $domain_name...\e[0m"
-    cd /tmp/
-    curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-    sudo dpkg -i cloudflared.deb
-    echo "\e[92m\e[92mGoto Zero Trust Cloudflare  URL https://one.dash.cloudflare.com"
-    echo "> Access > Tunnel >  "
-    echo "Create Tunnel name as Shopware  > Save Tunnel"
-    echo "Extract the Tunnel token  it's consist after cmd sudo cloudflared service install "
-    read  -p "Enter Tunnel Token " token    
-    sudo cloudflared service install $token
-    echo " Press Next butten"
-    echo "> Select Public Hostname > \e[0m\e[91mAdd Public Hostname (\e[0m \e[92msubdomain section emptp > Select domain > Type HTTPS > In url add localhost:443 \e[0m\e[91m Save te hostname"
-    echo -e "\e[92mCloudflare  Zero Trust access setup completed for $domain_name.\e[0m"
-}
-
-# Ask the user for the domain name
-get_domain_name() {
-    read -p "Enter the domain name: " domain_name
-
-    while true; do
-    if check_a_record "$domain_name"; then
-        echo "A record exists for $domain_name. Exiting."
-        echo "Remove A Record of $domain_name in Cloudflare"
-        read -p "Have you removed the A Record and want to continue (y/n)? " user_input
-        if [ "$user_input" = "y" ]; then
-        break  # Exit the loop
-        else
-        read -p "Enter the domain name: " domain_name  # Ask again
-        fi
-    fi
-    done
-}
-
 # Main script
 #Root permission check
 
@@ -312,9 +301,7 @@ options=("Install Shopware With Zero Trust" "Install Shopware & RainLoop Webmail
 select option in "${options[@]}"; do
     case $REPLY in
     1)
-        log "Starting cloudflare setup."
-        cloudflare_setup      # setup cloudflare
-        log "Cloudflare setup Completed"
+        
         log "Starting Shopware installation."
         install_dependencies  # Install dependencies
         log "Dependencies installed."
@@ -324,9 +311,6 @@ select option in "${options[@]}"; do
         exit
         ;;
     2)
-        log "Starting cloudflare setup."
-        cloudflare_setup      # setup cloudflare
-        log "Cloudflare setup Completed"
         log "Dependencies logs Start."
         install_dependencies  # Install dependencies
         log "Dependencies installed."
