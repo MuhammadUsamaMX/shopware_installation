@@ -38,8 +38,8 @@ install_dependencies() {
     log "Installing dependencies..."
     iptables -A INPUT -p tcp --dport 80 -j DROP &&  iptables -A INPUT -p tcp --dport 22 -j ACCEPT &&  iptables -A INPUT -p tcp --dport 443 -j DROP && iptables -A INPUT -p tcp --dport 3306 -j DROP
     sudo apt update
-    sudo apt install -y lsb-release curl openssl iptables  mysql-client curl wget sudo nano zip ufw apache2 php-fpm php-mysql php-curl php-dom php-json php-zip php-gd php-xml php-mbstring php-intl php-opcache
-    sudo apt install -y mariadb-server
+    sudo apt install -y lsb-release curl openssl mysql-client iptables curl wget sudo nano zip ufw apache2 php-fpm php-mysql php-curl php-dom php-json php-zip php-gd php-xml php-mbstring php-intl php-opcache
+    sudo apt install -y  mariadb-server 
     log "Dependencies installed."
     sleep 3
     clear
@@ -137,15 +137,32 @@ cloudflare_setup() {
     cd /tmp/
     curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
     sudo dpkg -i cloudflared.deb
-    echo "\e[92m\e[92mGoto Zero Trust Cloudflare  URL https://one.dash.cloudflare.com"
-    echo "> Access > Tunnel >  "
-    echo "Create Tunnel name as Shopware  > Save Tunnel"
+    echo "Goto Zero Trust Cloudflare  URL https://one.dash.cloudflare.com"
+    echo "> Access "
+    echo "> Tunnel "
+    echo "> Create Tunnel name as Shopware "
+    echo "> Save Tunnel"
     echo "Extract the Tunnel token  it's consist after cmd sudo cloudflared service install "
     read  -p "Enter Tunnel Token " token    
     sudo cloudflared service install $token
-    echo " Press Next butten"
-    echo "> Select Public Hostname > \e[0m\e[91mAdd Public Hostname (\e[0m \e[92msubdomain section emptp > Select domain > Type HTTPS > In url add localhost:443 \e[0m\e[91m Save te hostname"
-    echo -e "\e[92mCloudflare  Zero Trust access setup completed for $domain_name.\e[0m"
+    echo "> Press Next butten"
+    echo "> Select Public Hostname "
+    echo "> Add Public Hostname (subdomain section leave it  empty)"
+    echo "> Select domain"
+    echo "> Type HTTPS "
+    echo "> In url add localhost:443"
+    echo "> Save te hostname"
+    while true; do
+    clear
+    read -p "Type 'yes' to confirm successful completion of all above mention steps" response
+
+    if [ "$response" == "yes" ]; then
+        break
+    else
+        echo "Please type 'yes' to confirm successful completion of all above mention steps."
+    fi
+    done
+    echo "> Cloudflare Zero Trust access setup completed for $domain_name."
 }
 
 # Ask the user for the domain name
