@@ -95,9 +95,6 @@ install_rainloop() {
     echo -e "\e[92mCreating a directory for RainLoop installation...\e[0m"
     sudo mkdir /var/www/$domain_name
     sudo chown -R www-data:www-data /var/www/$domain_name
-    sudo cd  /var/www/$domain_name
-    curl -sL https://repository.rainloop.net/installer.php | sudo php
-
     echo -e "\e[92mCreating Apache virtual host configuration...\e[0m"
     vhost_file="/etc/apache2/sites-available/$domain_name.conf"
     echo "<VirtualHost *:80>
@@ -120,6 +117,9 @@ install_rainloop() {
         SetHandler \"proxy:unix:/run/php/php8.1-fpm.sock|fcgi://localhost/\"
     </FilesMatch>
     </VirtualHost>" | sudo tee $vhost_file
+
+    clear
+    sudo cd  /var/www/$domain_name && curl -sL https://repository.rainloop.net/installer.php | sudo php
 
     echo -e "\e[92mEnabling the new virtual host...\e[0m"
     sudo a2ensite $domain_name.conf
