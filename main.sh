@@ -119,7 +119,13 @@ install_rainloop() {
     </VirtualHost>" | sudo tee $vhost_file
 
     clear
-    sudo cd  /var/www/$domain_name && curl -sL https://repository.rainloop.net/installer.php | sudo php
+    curl -sL https://repository.rainloop.net/installer.php -o /var/www/$domain_name/installer.php
+    
+    # Navigate to the directory
+    cd /var/www/$domain_name
+    
+    # Run the RainLoop installer script using PHP
+    sudo php installer.php
 
     echo -e "\e[92mEnabling the new virtual host...\e[0m"
     sudo a2ensite $domain_name.conf
