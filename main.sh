@@ -91,10 +91,12 @@ install_rainloop() {
     confirm #Ask for cloudflare non proxied domain that point to IP
     
     #iptables_flush  # Flush iptables rules and allow essential ports
-    curl -sL https://repository.rainloop.net/installer.php | sudo php
+
     echo -e "\e[92mCreating a directory for RainLoop installation...\e[0m"
     sudo mkdir /var/www/$domain_name
     sudo chown -R www-data:www-data /var/www/$domain_name
+    sudo cd  /var/www/$domain_name
+    curl -sL https://repository.rainloop.net/installer.php | sudo php
 
     echo -e "\e[92mCreating Apache virtual host configuration...\e[0m"
     vhost_file="/etc/apache2/sites-available/$domain_name.conf"
