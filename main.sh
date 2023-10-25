@@ -67,7 +67,7 @@ confirm() {
 
 # Function to flush iptables rules and allow port 22, 80, 443
 iptables_flush() {
-    echo -e "\e[92mFlushing iptables rules and allowing ports 22, 80, 443...\e[0m"
+    #echo -e "\e[92mFlushing iptables rules and allowing ports 22, 80, 443...\e[0m"
 
     # Flush existing rules
     iptables -F && iptables -A INPUT -p tcp --dport 22 -j ACCEPT && iptables -A INPUT -p tcp --dport 80 -j ACCEPT && iptables -A INPUT -p tcp --dport 443 -j ACCEPT
@@ -224,7 +224,8 @@ install_shopware() {
     sudo systemctl restart apache2
     while true; do
     clear
-    read -p "Type 'yes' to confirm successful installation of Shopware 1st installer at https://$domain_name/shopware-installer.phar.php/install" response
+    echo "Type 'yes' to confirm successful installation of Shopware 1st installer at https://$domain_name/shopware-installer.phar.php/install (until you get Forbidden 403 Error) "
+    read -p " " response
     if [ "$response" == "yes" ]; then
         break
     else
@@ -232,7 +233,6 @@ install_shopware() {
     fi
     done
     clear
-    
     
     while true; do
         echo "After the first installer, press 'yes' to remove the 'public' after $domain_name that is not changeable after installation"
@@ -258,7 +258,7 @@ install_shopware() {
         sleep 5
         break
     done
-
+    echo "After getting Forbidden Error Refresh the Web page."
     echo -e "\e[92mChanges have been made. You can access the 2nd Shopware installer at https://$domain_name/installer\e[0m"
 
     while true; do
