@@ -45,17 +45,12 @@ install_dependencies() {
     clear
 }
 
-# Function to display IP information
-ipinfo() {
-    curl -s ifconfig.me
-}
-
 # Function to install RainLoop Webmail
 install_rainloop() {
+
     echo -e "\e[92mOnly use subddomain for RainLoop installation (like webmail.domain.com)...\e[0m"
     
     get_domain_name  # Ask the user for the domain name
-    
 
     sudo mkdir /var/www/$domain_name
     sudo cd /var/www/$domain_name
@@ -63,7 +58,7 @@ install_rainloop() {
     sudo chown -R www-data:www-data /var/www/$domain_name
 
     vhost_file="/etc/apache2/sites-available/$domain_name.conf"
-    echo "<VirtualHost *:80>
+    echo "<VirtualHost *:8080>
     ServerName $domain_name
     DocumentRoot /var/www/$domain_name
     ErrorLog \${APACHE_LOG_DIR}/$domain_name_error.log
@@ -86,22 +81,28 @@ install_rainloop() {
         SetHandler \"proxy:unix:/run/php/php8.1-fpm.sock|fcgi://localhost/\"
     </FilesMatch>
     </VirtualHost>" | sudo tee $vhost_file
+    echo "Listen 8080" | sudo tee -a /etc/apache2/ports.conf
     sudo a2ensite $domain_name.conf
-
     sudo systemctl restart apache2
-
-    cd /var/www/$domain_name
-    echo "$(ipinfo)" "$domain_name" | sudo tee -a /etc/hosts
-
-    #Genrate self-assign SSL
-    generate_self_signed_ssl
     
-    echo ">Goto Cloudflare Zero Trust Dashoard https://one.dash.cloudflare.com >  Access > Tunnel > "
+    echo "> Goto Cloudflare Zero Trust Dashoard https://one.dash.cloudflare.com >  Access > Tunnel > "
     sleep 10
     echo " Select Tunnel name as Shopware > Configure Tunnel"
-    sleep 10
-    echo "\e[92select the Public Hostname > Add Public Hostname > enter webmail in subdomain section > Select domain > Type HTTPS > In url add localhost:443 \e[0m\e[91m Save te hostname\e[0m"
-    sleep 10
+    sleep 5
+    echo "Select the Public Hostname > " 
+    sleep 5
+    echo "Add Public Hostname >"
+    sleep 5
+    echo "Enter webmail in subdomain section >"
+    sleep 5
+    echo " Select domain >"
+    sleep 5
+    echo " Type HTTP >"
+    sleep 5
+    echo " In url add localhost:8080 >"
+    sleep 5
+    echo " Save te hostname"
+    sleep 5
     while true; do
     clear
     read -p "Type 'yes' to confirm successful completion of all above mention steps" response
@@ -126,6 +127,13 @@ check_a_record() {
   fi
 }
 
+check_aaaa_record() {
+  if dig +short AAAA "$1" | grep -q '^[0-9a-fA-F:]\+'; then
+    return 0  # AAAA record exists
+   else 
+       return 1  # AAAA record doesn't exist
+}
+
 generate_self_signed_ssl() {
     echo -e "\e[92mGenerating a self-signed SSL certificate...\e[0m"
     openssl req -x509 \
@@ -135,7 +143,6 @@ generate_self_signed_ssl() {
             -subj "/CN=$domain_name/C=US/L=San Fransisco" \
             -keyout /etc/ssl/private/selfsigned.key -out /etc/ssl/certs/selfsigned.crt     
 }
-
 # Function to set up Cloudflare access
 cloudflare_setup() {
     clear
@@ -144,13 +151,20 @@ cloudflare_setup() {
     curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
     sudo dpkg -i cloudflared.deb
     echo "Goto Zero Trust Cloudflare  URL https://one.dash.cloudflare.com"
+    sleep 5
     echo "> Access "
+    sleep 5
     echo "> Tunnel "
+    sleep 5
     echo "> Create Tunnel name as Shopware "
+    sleep 5
     echo "> Save Tunnel"
+    sleep 5
     echo "Extract the Tunnel token  it's consist after cmd sudo cloudflared service install "
+    sleep 5
     read  -p "Enter Tunnel Token " token    
     sudo cloudflared service install $token
+    clear
     echo "> Press Next butten"
     echo "> Select Public Hostname "
     echo "> Add Public Hostname (subdomain section leave it  empty)"
@@ -159,7 +173,7 @@ cloudflare_setup() {
     echo "> In url add localhost:443"
     echo "> Save te hostname"
     while true; do
-    clear
+  
     read -p "Type 'yes' to confirm successful completion of all above mention steps" response
 
     if [ "$response" == "yes" ]; then
@@ -176,16 +190,17 @@ get_domain_name() {
     read -p "Enter the domain name: " domain_name
 
     while true; do
-    if check_a_record "$domain_name"; then
-        echo "A record exists for $domain_name. Exiting."
-        echo "Remove A Record of $domain_name in Cloudflare"
-        read -p "Have you removed the A Record and want to continue (y/n)? " user_input
-        if [ "$user_input" = "y" ]; then
-        break  # Exit the loop
-        else
-        read -p "Enter the domain name: " domain_name  # Ask again
-        fi
+    if check_a_record "$domain_name" || check_aaaa_record "$domain_name"; then
+        echo "A or AAAA records exist for $domain_name."
+        echo "Delete A and AAAA records from cloudflare."
+        sleep 2
+        echo "A or AAAA records again check after 10 seconds."
+    else
+        echo "No A or AAAA records found for $domain_name"
+        sleep 3
+        break
     fi
+    sleep 10  # Sleep for 10 seconds before checking again
     done
 }
 install_shopware() {
@@ -242,9 +257,41 @@ install_shopware() {
     RewriteRule ^ https://%{SERVER_NAME}%{REQUEST_URI} [END,NE,R=permanent]
 </VirtualHost>" | sudo tee $vhost_file
 
+$vhost_file_https="/etc/apache2/sites-available/$domain_name-ssl.conf"
+    echo "<VirtualHost *:443>
+    ServerAdmin webmaster@$domain_name
+    DocumentRoot /var/www/$domain_name
+
+    ErrorLog \${APACHE_LOG_DIR}/$domain_name_error.log
+    CustomLog \${APACHE_LOG_DIR}/$domain_name_access.log combined
+    SSLEngine on
+    SSLCertificateFile /etc/ssl/certs/selfsigned.crt
+    SSLCertificateKeyFile /etc/ssl/private/selfsigned.key
+
+    <Directory /var/www/$domain_name>
+        Options -Indexes +FollowSymLinks +MultiViews
+        AllowOverride All
+        Order allow,deny
+        allow from all
+    </Directory>
+
+    #Redirect requests from the /public URL path to /
+    RewriteEngine On
+    RewriteRule ^/public(/.*)?$ /$1 [R=301,L]
+
+    # For PHP 8.1
+    <FilesMatch \.php$>
+        SetHandler \"proxy:unix:/run/php/php8.1-fpm.sock|fcgi://localhost/\"
+    </FilesMatch>
+    RewriteEngine on
+    RewriteCond %{SERVER_NAME} =$domain_name
+    RewriteRule ^ https://%{SERVER_NAME}%{REQUEST_URI} [END,NE,R=permanent]
+</VirtualHost>" | sudo tee $vhost_file_https
+
     sudo a2dissite /etc/apache2/sites-enabled/000-default.conf
     sudo a2ensite $domain_name.conf
     sudo a2enmod rewrite
+    sudo a2enmod ssl
     sudo a2enmod proxy_fcgi setenvif
     sudo sed -i 's/;opcache.memory_consumption=128/opcache.memory_consumption=256/' /etc/php/8.1/cli/php.ini
     sudo sed -i 's/memory_limit =.*/memory_limit = 512M/' /etc/php/8.1/cli/php.ini
@@ -275,7 +322,7 @@ install_shopware() {
         echo "After the first installer, press 'yes' to remove the 'public' after $domain_name that is not changeable after installation"
         
         # Update the configuration files
-        sudo sed -i "s|DocumentRoot /var/www/$domain_name|DocumentRoot /var/www/$domain_name/public|g" /etc/apache2/sites-available/$domain_name-le-ssl.conf
+        sudo sed -i "s|DocumentRoot /var/www/$domain_name|DocumentRoot /var/www/$domain_name/public|g" /etc/apache2/sites-available/$domain_name-ssl.conf
         sudo sed -i "s|DocumentRoot /var/www/$domain_name|DocumentRoot /var/www/$domain_name/public|g" /etc/apache2/sites-available/$domain_name.conf
         
         # Restart Apache
