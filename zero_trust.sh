@@ -137,10 +137,11 @@ check_a_record() {
 }
 
 check_aaaa_record() {
-  if dig +short AAAA "$1" | grep -q '^[0-9a-fA-F:]\+'; then
+  if dig +short AAAA "$1" | grep -qE '^[0-9a-fA-F:]+$'; then
     return 0  # AAAA record exists
-   else 
-       return 1  # AAAA record doesn't exist
+  else 
+    return 1  # AAAA record doesn't exist
+  fi
 }
 
 generate_self_signed_ssl() {
