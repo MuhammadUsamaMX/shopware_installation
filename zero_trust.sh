@@ -213,6 +213,7 @@ get_domain_name() {
     sleep 10  # Sleep for 10 seconds before checking again
     done
 }
+
 install_shopware() {
     get_domain_name  # Ask the user for the domain name
 
@@ -224,7 +225,7 @@ install_shopware() {
 
     sudo apt update && sudo apt upgrade -y
     curl -fsSL https://raw.githubusercontent.com/MuhammadUsamaMX/node18_install/main/script.sh | sudo -E bash -
-    sudo apt install -y nodejs 
+    sudo apt install -y nodejs
     sudo sed -i 's/memory_limit = .*/memory_limit = 512M/' /etc/php/8.1/fpm/php.ini
     sudo sed -i 's/upload_max_filesize = .*/upload_max_filesize = 20M/' /etc/php/8.1/fpm/php.ini
     sudo sed -i 's/max_execution_time = .*/max_execution_time = 300/' /etc/php/8.1/fpm/php.ini
@@ -234,19 +235,15 @@ install_shopware() {
     sudo chmod -R 755 /var/www/$domain_name
     
     #Genrate self-assign SSL
-    generate_self_signed_ssl
-    
-    vhost_file="/etc/apache2/sites-available/$domain_name.conf"
+    #generate_self_signed_ssl
+    rm /etc/apache2/sites-available/000-default.conf
+    vhost_file="/etc/apache2/sites-available/000-default.conf"
     echo "<VirtualHost *:80>
     ServerAdmin webmaster@$domain_name
     DocumentRoot /var/www/$domain_name
 
     ErrorLog \${APACHE_LOG_DIR}/$domain_name_error.log
     CustomLog \${APACHE_LOG_DIR}/$domain_name_access.log combined
-    SSLEngine on
-    SSLCertificateFile /etc/ssl/certs/selfsigned.crt
-    SSLCertificateKeyFile /etc/ssl/private/selfsigned.key
-
     <Directory /var/www/$domain_name>
         Options -Indexes +FollowSymLinks +MultiViews
         AllowOverride All
@@ -262,46 +259,9 @@ install_shopware() {
     <FilesMatch \.php$>
         SetHandler \"proxy:unix:/run/php/php8.1-fpm.sock|fcgi://localhost/\"
     </FilesMatch>
-    RewriteEngine on
-    RewriteCond %{SERVER_NAME} =$domain_name
-    RewriteRule ^ https://%{SERVER_NAME}%{REQUEST_URI} [END,NE,R=permanent]
 </VirtualHost>" | sudo tee $vhost_file
 
-$vhost_file_https="/etc/apache2/sites-available/$domain_name-ssl.conf"
-    echo "<VirtualHost *:443>
-    ServerAdmin webmaster@$domain_name
-    DocumentRoot /var/www/$domain_name
-
-    ErrorLog \${APACHE_LOG_DIR}/$domain_name_error.log
-    CustomLog \${APACHE_LOG_DIR}/$domain_name_access.log combined
-    SSLEngine on
-    SSLCertificateFile /etc/ssl/certs/selfsigned.crt
-    SSLCertificateKeyFile /etc/ssl/private/selfsigned.key
-
-    <Directory /var/www/$domain_name>
-        Options -Indexes +FollowSymLinks +MultiViews
-        AllowOverride All
-        Order allow,deny
-        allow from all
-    </Directory>
-
-    #Redirect requests from the /public URL path to /
-    RewriteEngine On
-    RewriteRule ^/public(/.*)?$ /$1 [R=301,L]
-
-    # For PHP 8.1
-    <FilesMatch \.php$>
-        SetHandler \"proxy:unix:/run/php/php8.1-fpm.sock|fcgi://localhost/\"
-    </FilesMatch>
-    RewriteEngine on
-    RewriteCond %{SERVER_NAME} =$domain_name
-    RewriteRule ^ https://%{SERVER_NAME}%{REQUEST_URI} [END,NE,R=permanent]
-</VirtualHost>" | sudo tee $vhost_file_https
-
-    sudo a2dissite /etc/apache2/sites-enabled/000-default.conf
-    sudo a2ensite $domain_name.conf
     sudo a2enmod rewrite
-    sudo a2enmod ssl
     sudo a2enmod proxy_fcgi setenvif
     sudo sed -i 's/;opcache.memory_consumption=128/opcache.memory_consumption=256/' /etc/php/8.1/cli/php.ini
     sudo sed -i 's/memory_limit =.*/memory_limit = 512M/' /etc/php/8.1/cli/php.ini
@@ -314,7 +274,6 @@ $vhost_file_https="/etc/apache2/sites-available/$domain_name-ssl.conf"
     sudo mysql -uroot -e "CREATE USER shopware@'localhost' IDENTIFIED BY '$db_password';"
     sudo mysql -uroot -e "GRANT ALL PRIVILEGES ON shopware.* TO shopware@'localhost';"
     sudo mysql -uroot -e "FLUSH PRIVILEGES;"
-    echo -e "\e[92mRestarting Apache one more time...\e[0m"
     sudo systemctl restart apache2
     while true; do
     clear
