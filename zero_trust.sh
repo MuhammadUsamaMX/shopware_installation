@@ -1,17 +1,26 @@
 #!/bin/bash
 
+# Check if running as root
+if [[ $EUID -ne 0 ]]; then
+    echo "This script must be run as root."
+    exit 1
+fi
+
 # Log file location
 log_file="/var/log/script.log"
 
 # Function to log messages
 log() {
     local message="$1"
-    echo "$(date +"%Y-%m-%d %H:%M:%S") - $message" | sudo tee -a "$log_file"
+    echo "$(date +"%Y-%m-%d %H:%M:%S") - $message" | tee -a "$log_file"
 }
 
+# Error handling
+set -e
+
 # Create the log file and set permissions
-sudo touch "$log_file"
-sudo chmod 644 "$log_file"
+touch "$log_file"
+chmod 644 "$log_file"
 log "Log file created and permissions set."
 
 # Function to check if the OS is Ubuntu and version is 22.04 or above
