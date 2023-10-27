@@ -170,8 +170,8 @@ cloudflare_setup() {
     echo "> Select Public Hostname "
     echo "> Add Public Hostname (subdomain section leave it  empty)"
     echo "> Select domain"
-    echo "> Type HTTPS "
-    echo "> In url add localhost:443"
+    echo "> Type HTTP"
+    echo "> In url add localhost:"80
     echo "> Save te hostname"
     while true; do
   
