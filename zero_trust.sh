@@ -1,26 +1,17 @@
 #!/bin/bash
 
-# Check if running as root
-if [[ $EUID -ne 0 ]]; then
-    echo "This script must be run as root."
-    exit 1
-fi
-
 # Log file location
 log_file="/var/log/script.log"
 
 # Function to log messages
 log() {
     local message="$1"
-    echo "$(date +"%Y-%m-%d %H:%M:%S") - $message" | tee -a "$log_file"
+    echo "$(date +"%Y-%m-%d %H:%M:%S") - $message" | sudo tee -a "$log_file"
 }
 
-# Error handling
-set -e
-
 # Create the log file and set permissions
-touch "$log_file"
-chmod 644 "$log_file"
+sudo touch "$log_file"
+sudo chmod 644 "$log_file"
 log "Log file created and permissions set."
 
 # Function to check if the OS is Ubuntu and version is 22.04 or above
@@ -137,11 +128,10 @@ check_a_record() {
 }
 
 check_aaaa_record() {
-  if dig +short AAAA "$1" | grep -qE '^[0-9a-fA-F:]+$'; then
+  if dig +short AAAA "$1" | grep -q '^[0-9a-fA-F:]\+'; then
     return 0  # AAAA record exists
-  else 
-    return 1  # AAAA record doesn't exist
-  fi
+   else 
+       return 1  # AAAA record doesn't exist
 }
 
 generate_self_signed_ssl() {
@@ -213,10 +203,13 @@ get_domain_name() {
     sleep 10  # Sleep for 10 seconds before checking again
     done
 }
-
 install_shopware() {
+    
     get_domain_name  # Ask the user for the domain name
 
+    log "Dependencies logs Start."
+    install_dependencies  # Install dependencies
+    log "Dependencies installed."
     log "Starting cloudflare setup."
     cloudflare_setup      # setup cloudflare
     log "Cloudflare setup Completed"
@@ -343,17 +336,12 @@ select option in "${options[@]}"; do
     1)
         
         log "Starting Shopware installation."
-        install_dependencies  # Install dependencies
-        log "Dependencies installed."
         install_shopware
         log "Shopware installation completed."
 
         exit
         ;;
     2)
-        log "Dependencies logs Start."
-        install_dependencies  # Install dependencies
-        log "Dependencies installed."
         log "Starting Shopware installation."
         install_shopware      # Install shopware6
         log "Shopware installation completed."
