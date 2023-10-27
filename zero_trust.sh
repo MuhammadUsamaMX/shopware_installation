@@ -105,7 +105,8 @@ install_rainloop() {
     sleep 5
     while true; do
     clear
-    read -p "Type 'yes' to confirm successful completion of all above mention steps" response
+    echo "Type 'yes' to confirm successful completion of all above mention steps"
+    read -p " " response
 
     if [ "$response" == "yes" ]; then
         break
