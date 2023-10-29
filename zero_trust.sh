@@ -46,6 +46,7 @@ install_dependencies() {
 }
 
 # Function to install RainLoop Webmail
+# Function to install RainLoop Webmail
 install_rainloop() {
 
     echo -e "\e[92mOnly use subddomain for RainLoop installation (like webmail.domain.com)...\e[0m"
@@ -63,9 +64,6 @@ install_rainloop() {
     DocumentRoot /var/www/$domain_name
     ErrorLog \${APACHE_LOG_DIR}/$domain_name_error.log
     CustomLog \${APACHE_LOG_DIR}/$domain_name_access.log combined
-    SSLEngine on
-    SSLCertificateFile /etc/ssl/certs/selfsigned.crt
-    SSLCertificateKeyFile /etc/ssl/private/selfsigned.key
     <Directory /var/www/$domain_name>
         Options -Indexes +FollowSymLinks +MultiViews
         AllowOverride All
@@ -105,8 +103,7 @@ install_rainloop() {
     sleep 5
     while true; do
     clear
-    echo "Type 'yes' to confirm successful completion of all above mention steps"
-    read -p " " response
+    read -p "Type 'yes' to confirm successful completion of all above mention steps" response
 
     if [ "$response" == "yes" ]; then
         break
@@ -184,6 +181,7 @@ cloudflare_setup() {
         echo "Please type 'yes' to confirm successful completion of all above mention steps."
     fi
     done
+    sudo iptables -F && sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT && sudo iptables -P INPUT DROP
     echo "> Cloudflare Zero Trust access setup completed for $domain_name."
 }
 
@@ -228,9 +226,7 @@ install_shopware() {
     sudo wget https://github.com/shopware/web-recovery/releases/latest/download/shopware-installer.phar.php -P /var/www/$domain_name
     sudo chown -R www-data:www-data /var/www/$domain_name
     sudo chmod -R 755 /var/www/$domain_name
-    
-    #Genrate self-assign SSL
-    #generate_self_signed_ssl
+
     rm /etc/apache2/sites-available/000-default.conf
     vhost_file="/etc/apache2/sites-available/000-default.conf"
     echo "<VirtualHost *:80>
@@ -256,23 +252,16 @@ install_shopware() {
     </FilesMatch>
 </VirtualHost>" | sudo tee $vhost_file
 
-    sudo a2enmod rewrite
-    sudo a2enmod proxy_fcgi setenvif
+
     sudo sed -i 's/;opcache.memory_consumption=128/opcache.memory_consumption=256/' /etc/php/8.1/cli/php.ini
     sudo sed -i 's/memory_limit =.*/memory_limit = 512M/' /etc/php/8.1/cli/php.ini
+    sudo a2enmod rewrite
+    sudo a2enmod proxy_fcgi setenvif
     sudo systemctl restart php8.1-fpm
-    sudo systemctl restart apache2
-    echo "$(ipinfo)" "$domain_name" | sudo tee -a /etc/hosts
-    db_password=$(openssl rand -base64 12)
-    echo -e "\e[92mCreating database and user...\e[0m"
-    sudo mysql -uroot -e "CREATE DATABASE shopware;"
-    sudo mysql -uroot -e "CREATE USER shopware@'localhost' IDENTIFIED BY '$db_password';"
-    sudo mysql -uroot -e "GRANT ALL PRIVILEGES ON shopware.* TO shopware@'localhost';"
-    sudo mysql -uroot -e "FLUSH PRIVILEGES;"
     sudo systemctl restart apache2
     while true; do
     clear
-    read -p "Type 'yes' to confirm successful installation of Shopware 1st installer at https://$domain_name/shopware-installer.phar.php/install" response
+    read -p "Type 'yes' to confirm successful installation of Shopware 1st installer at https://$domain_name/shopware-installer.phar.php/install (until you get Forbidden 403 Error)" response
     if [ "$response" == "yes" ]; then
         break
     else
@@ -280,33 +269,32 @@ install_shopware() {
     fi
     done
     clear
+     # Update the configuration files
+    sudo sed -i "s|DocumentRoot /var/www/$domain_name|DocumentRoot /var/www/$domain_name/public|g" /etc/apache2/sites-available/000-default.conf
+    echo "After getting Forbidden Error Refresh the Web page."   
+    # Restart Apache
+    sudo systemctl restart apache2
     
+    db_password=$(openssl rand -base64 12)
+    echo -e "\e[92mCreating database and user...\e[0m"
+    sudo mysql -uroot -e "CREATE DATABASE shopware;"
+    sudo mysql -uroot -e "CREATE USER shopware@'localhost' IDENTIFIED BY '$db_password';"
+    sudo mysql -uroot -e "GRANT ALL PRIVILEGES ON shopware.* TO shopware@'localhost';"
+    sudo mysql -uroot -e "FLUSH PRIVILEGES;"
+   
+    # Print DB Details
+    echo -e "\e[92mDatabase Name: shopware\e[0m"
+    echo -e "\e[92mDatabase User: shopware\e[0m"
+    echo -e "\e[92mDatabase Password: $db_password\e[0m"
     
-    while true; do
-        echo "After the first installer, press 'yes' to remove the 'public' after $domain_name that is not changeable after installation"
-        
-        # Update the configuration files
-        sudo sed -i "s|DocumentRoot /var/www/$domain_name|DocumentRoot /var/www/$domain_name/public|g" /etc/apache2/sites-available/$domain_name-ssl.conf
-        sudo sed -i "s|DocumentRoot /var/www/$domain_name|DocumentRoot /var/www/$domain_name/public|g" /etc/apache2/sites-available/$domain_name.conf
-        
-        # Restart Apache
-        sudo systemctl restart apache2
-        clear
-
-        # Print DB Details
-        echo -e "\e[92mDatabase Name: shopware\e[0m"
-        echo -e "\e[92mDatabase User: shopware\e[0m"
-        echo -e "\e[92mDatabase Password: $db_password\e[0m"
-
-        # Create the credentials.txt file
-        echo -e "# Print DB Details\nDatabase Name: shopware\nDatabase User: shopware\nDatabase Password: $db_password" > /root/credentials.txt
-
-        # Inform the user that the file has been created
-        echo "Credentials have been saved in credentials.txt"
-        sleep 5
-        break
-    done
-
+    # Create the credentials.txt file
+    echo -e "# Print DB Details\nDatabase Name: shopware\nDatabase User: shopware\nDatabase Password: $db_password" > /root/credentials.txt
+    
+    # Inform the user that the file has been created
+    echo "Credentials have been saved in credentials.txt"
+    
+    sleep 5
+    break
     echo -e "\e[92mChanges have been made. You can access the 2nd Shopware installer at https://$domain_name/installer\e[0m"
 
     while true; do
