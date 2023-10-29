@@ -33,61 +33,6 @@ is_root() {
     return 1
 }
 
-# Function to get the external interface
-get_external_interface() {
-    external_interface=""
-    # Using the 'ip route' command to determine the default route's interface
-    default_interface=$(ip route | awk '/default/ {print $5}')
-    if [ -n "$default_interface" ]; then
-        external_interface="$default_interface"
-    fi
-    echo "$external_interface"
-}
-
-# Function to get the internal interfaces
-get_internal_interfaces() {
-    internal_interfaces=()
-    # Using 'ip addr' command to find interfaces other than the external one
-    interfaces=$(ip -o link show | awk -F ': ' '{print $2}')
-    for interface in $interfaces; do
-        if [ "$interface" != "$external_interface" ]; then
-            internal_interfaces+=("$interface")
-        fi
-    done
-    echo "${internal_interfaces[@]}"
-}
-
-# Applying iptables rules
-apply_iptables_rules() {
-
-    #Allow incomming SSH connections & block 80,443,3306
-    sudo iptables -F && sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT && sudo iptables -P INPUT DROP && iptables -A INPUT -p tcp --dport 80 -j DROP &&  iptables -A INPUT -p tcp --dport 443 -j DROP && iptables -A INPUT -p tcp --dport 3306 -j DROP
-   
-    internal_interfaces=("$@")
-    # Allow loopback connections
-    sudo iptables -A INPUT -i lo -j ACCEPT
-    sudo iptables -A OUTPUT -o lo -j ACCEPT
-
-    # Allowing established and related incoming connections
-    sudo iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-
-    # Allowing established outgoing connections
-    sudo iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT
-
-    # Allow incoming SSH connections
-    sudo iptables -A INPUT -p tcp --dport 22 -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
-    sudo iptables -A OUTPUT -p tcp --sport 22 -m conntrack --ctstate ESTABLISHED -j ACCEPT
- 
-    # Allow internal to access the external
-    for int_interface in "${internal_interfaces[@]}"; do
-        sudo iptables -A FORWARD -i "$int_interface" -o "$external_interface" -j ACCEPT
-    done
-
-    # Dropping invalid packets
-    sudo iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
-}
-
-
 # Function to install dependencies
 install_dependencies() {
     log "Installing dependencies..."
@@ -137,23 +82,6 @@ check_aaaa_record() {
 cloudflare_setup() {
     clear
     echo -e "Setting up Cloudflare Zero Trust access for $domain_name"
-    
-    external_interface=$(get_external_interface)
-    if [ -z "$external_interface" ]; then
-        echo "Could not detect the external interface."
-        exit 1
-    fi
-
-    internal_interfaces=($(get_internal_interfaces))
-    if [ ${#internal_interfaces[@]} -eq 0 ]; then
-        echo "No internal interfaces detected."
-        exit 1
-    fi
-
-    apply_iptables_rules "${internal_interfaces[@]}"
-    sudo iptables-save
-    sudo iptables-legacy-save
-
     cd /tmp/
     curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
     sudo dpkg -i cloudflared.deb
