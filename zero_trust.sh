@@ -33,19 +33,165 @@ is_root() {
     return 1
 }
 
+# Function to get the external interface
+get_external_interface() {
+    external_interface=""
+    # Using the 'ip route' command to determine the default route's interface
+    default_interface=$(ip route | awk '/default/ {print $5}')
+    if [ -n "$default_interface" ]; then
+        external_interface="$default_interface"
+    fi
+    echo "$external_interface"
+}
+
+# Function to get the internal interfaces
+get_internal_interfaces() {
+    internal_interfaces=()
+    # Using 'ip addr' command to find interfaces other than the external one
+    interfaces=$(ip -o link show | awk -F ': ' '{print $2}')
+    for interface in $interfaces; do
+        if [ "$interface" != "$external_interface" ]; then
+            internal_interfaces+=("$interface")
+        fi
+    done
+    echo "${internal_interfaces[@]}"
+}
+
+# Applying iptables rules
+apply_iptables_rules() {
+    internal_interfaces=("$@")
+    # Allow loopback connections
+    sudo iptables -A INPUT -i lo -j ACCEPT
+    sudo iptables -A OUTPUT -o lo -j ACCEPT
+
+    # Allowing established and related incoming connections
+    sudo iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+    # Allowing established outgoing connections
+    sudo iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT
+
+    # Allow incoming SSH connections
+    sudo iptables -A INPUT -p tcp --dport 22 -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
+    sudo iptables -A OUTPUT -p tcp --sport 22 -m conntrack --ctstate ESTABLISHED -j ACCEPT
+
+    #Allow incomming SSH connections & block 80,443,3306
+    sudo iptables -F && sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT && sudo iptables -P INPUT DROP && iptables -A INPUT -p tcp --dport 80 -j DROP &&  iptables -A INPUT -p tcp --dport 443 -j DROP && iptables -A INPUT -p tcp --dport 3306 -j DROP
+    
+    # Allow internal to access the external
+    for int_interface in "${internal_interfaces[@]}"; do
+        sudo iptables -A FORWARD -i "$int_interface" -o "$external_interface" -j ACCEPT
+    done
+
+    # Dropping invalid packets
+    sudo iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
+}
+
+
 # Function to install dependencies
 install_dependencies() {
     log "Installing dependencies..."
-    iptables -A INPUT -p tcp --dport 80 -j DROP &&  iptables -A INPUT -p tcp --dport 22 -j ACCEPT &&  iptables -A INPUT -p tcp --dport 443 -j DROP && iptables -A INPUT -p tcp --dport 3306 -j DROP
     sudo apt update
     sudo apt install -y lsb-release curl openssl mysql-client iptables curl wget sudo nano zip ufw apache2 php-fpm php-mysql php-curl php-dom php-json php-zip php-gd php-xml php-mbstring php-intl php-opcache
     sudo apt install -y  mariadb-server 
     log "Dependencies installed."
-    sleep 3
     clear
 }
 
-# Function to install RainLoop Webmail
+# Ask the user for the domain name
+get_domain_name() {
+    read -p "Enter the domain name: " domain_name
+
+    while true; do
+    if check_a_record "$domain_name" || check_aaaa_record "$domain_name"; then
+        echo "A or AAAA records exist for $domain_name."
+        echo "Delete A and AAAA records from cloudflare."
+        sleep 2
+        echo "A or AAAA records again check after 10 seconds."
+    else
+        echo "No A or AAAA records found for $domain_name"
+        sleep 3
+        break
+    fi
+    sleep 10  # Sleep for 10 seconds before checking again
+    done
+}
+
+check_a_record() {
+  if dig +short "$1" | grep -q '^[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+'; then
+    return 0  # A record exists
+  else
+    return 1  # A record doesn't exist
+  fi
+}
+
+check_aaaa_record() {
+  if dig +short AAAA "$1" | grep -qE '^[0-9a-fA-F:]+$'; then
+    return 0  # AAAA record exists
+  else
+    return 1  # AAAA record doesn't exist
+  fi
+}
+
+# Function to set up Cloudflare access
+cloudflare_setup() {
+    clear
+    echo -e "Setting up Cloudflare Zero Trust access for $domain_name"
+    
+    external_interface=$(get_external_interface)
+    if [ -z "$external_interface" ]; then
+        echo "Could not detect the external interface."
+        exit 1
+    fi
+
+    internal_interfaces=($(get_internal_interfaces))
+    if [ ${#internal_interfaces[@]} -eq 0 ]; then
+        echo "No internal interfaces detected."
+        exit 1
+    fi
+
+    apply_iptables_rules "${internal_interfaces[@]}"
+    sudo iptables-save
+    sudo iptables-legacy-save
+
+    cd /tmp/
+    curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+    sudo dpkg -i cloudflared.deb
+    echo "Goto Zero Trust Cloudflare  URL https://one.dash.cloudflare.com"
+    sleep 5
+    echo "> Access "
+    sleep 5
+    echo "> Tunnel "
+    sleep 5
+    echo "> Create Tunnel name as Shopware "
+    sleep 5
+    echo "> Save Tunnel"
+    sleep 5
+    echo "Extract the Tunnel token  it's consist after cmd sudo cloudflared service install "
+    sleep 5
+    read  -p "Enter Tunnel Token " token    
+    sudo cloudflared service install $token
+    clear
+    echo "> Press Next butten"
+    echo "> Select Public Hostname "
+    echo "> Add Public Hostname (subdomain section leave it  empty)"
+    echo "> Select domain"
+    echo "> Type HTTP"
+    echo "> In url add localhost:"80
+    echo "> Save te hostname"
+    while true; do
+  
+    read -p "Type 'yes' to confirm successful completion of all above mention steps" response
+
+    if [ "$response" == "yes" ]; then
+        break
+    else
+        echo "Please type 'yes' to confirm successful completion of all above mention steps."
+    fi
+    done
+
+    echo "> Cloudflare Zero Trust access setup completed for $domain_name."
+}
+
 # Function to install RainLoop Webmail
 install_rainloop() {
 
@@ -115,94 +261,6 @@ install_rainloop() {
     echo -e "\e[92mCloudflare  Zero Trust access setup completed for $domain_name.\e[0m"
 }
 
-# Function to install Shopware
-
-check_a_record() {
-  if dig +short "$1" | grep -q '^[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+'; then
-    return 0  # A record exists
-  else
-    return 1  # A record doesn't exist
-  fi
-}
-
-check_aaaa_record() {
-  if dig +short AAAA "$1" | grep -qE '^[0-9a-fA-F:]+$'; then
-    return 0  # AAAA record exists
-  else
-    return 1  # AAAA record doesn't exist
-  fi
-}
-
-generate_self_signed_ssl() {
-    echo -e "\e[92mGenerating a self-signed SSL certificate...\e[0m"
-    openssl req -x509 \
-            -sha256 -days 356 \
-            -nodes \
-            -newkey rsa:2048 \
-            -subj "/CN=$domain_name/C=US/L=San Fransisco" \
-            -keyout /etc/ssl/private/selfsigned.key -out /etc/ssl/certs/selfsigned.crt     
-}
-# Function to set up Cloudflare access
-cloudflare_setup() {
-    clear
-    echo -e "Setting up Cloudflare Zero Trust access for $domain_name"
-    cd /tmp/
-    curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-    sudo dpkg -i cloudflared.deb
-    echo "Goto Zero Trust Cloudflare  URL https://one.dash.cloudflare.com"
-    sleep 5
-    echo "> Access "
-    sleep 5
-    echo "> Tunnel "
-    sleep 5
-    echo "> Create Tunnel name as Shopware "
-    sleep 5
-    echo "> Save Tunnel"
-    sleep 5
-    echo "Extract the Tunnel token  it's consist after cmd sudo cloudflared service install "
-    sleep 5
-    read  -p "Enter Tunnel Token " token    
-    sudo cloudflared service install $token
-    clear
-    echo "> Press Next butten"
-    echo "> Select Public Hostname "
-    echo "> Add Public Hostname (subdomain section leave it  empty)"
-    echo "> Select domain"
-    echo "> Type HTTP"
-    echo "> In url add localhost:"80
-    echo "> Save te hostname"
-    while true; do
-  
-    read -p "Type 'yes' to confirm successful completion of all above mention steps" response
-
-    if [ "$response" == "yes" ]; then
-        break
-    else
-        echo "Please type 'yes' to confirm successful completion of all above mention steps."
-    fi
-    done
-    sudo iptables -F && sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT && sudo iptables -P INPUT DROP
-    echo "> Cloudflare Zero Trust access setup completed for $domain_name."
-}
-
-# Ask the user for the domain name
-get_domain_name() {
-    read -p "Enter the domain name: " domain_name
-
-    while true; do
-    if check_a_record "$domain_name" || check_aaaa_record "$domain_name"; then
-        echo "A or AAAA records exist for $domain_name."
-        echo "Delete A and AAAA records from cloudflare."
-        sleep 2
-        echo "A or AAAA records again check after 10 seconds."
-    else
-        echo "No A or AAAA records found for $domain_name"
-        sleep 3
-        break
-    fi
-    sleep 10  # Sleep for 10 seconds before checking again
-    done
-}
 install_shopware() {
     
     get_domain_name  # Ask the user for the domain name
@@ -250,7 +308,7 @@ install_shopware() {
     <FilesMatch \.php$>
         SetHandler \"proxy:unix:/run/php/php8.1-fpm.sock|fcgi://localhost/\"
     </FilesMatch>
-</VirtualHost>" | sudo tee $vhost_file
+    </VirtualHost>" | sudo tee $vhost_file
 
 
     sudo sed -i 's/;opcache.memory_consumption=128/opcache.memory_consumption=256/' /etc/php/8.1/cli/php.ini
