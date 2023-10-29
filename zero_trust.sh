@@ -179,9 +179,10 @@ cloudflare_setup() {
     echo "> Type HTTP"
     echo "> In url add localhost:"80
     echo "> Save te hostname"
+    echo "Type 'yes' to confirm successful completion of all above mention steps"
     while true; do
-  
-    read -p "Type 'yes' to confirm successful completion of all above mention steps" response
+    
+    read -p " " response
 
     if [ "$response" == "yes" ]; then
         break
