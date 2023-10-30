@@ -221,6 +221,15 @@ install_shopware() {
     ServerAdmin webmaster@$domain_name
     DocumentRoot /var/www/$domain_name
 
+    # Setting Content-Security-Policy header
+    Header always set Content-Security-Policy "upgrade-insecure-requests"
+    
+    # Additional headers for stricter security (optional)
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-XSS-Protection "1; mode=block"
+    
     ErrorLog \${APACHE_LOG_DIR}/$domain_name_error.log
     CustomLog \${APACHE_LOG_DIR}/$domain_name_access.log combined
     <Directory /var/www/$domain_name>
@@ -244,6 +253,7 @@ install_shopware() {
     sudo sed -i 's/;opcache.memory_consumption=128/opcache.memory_consumption=256/' /etc/php/8.1/cli/php.ini
     sudo sed -i 's/memory_limit =.*/memory_limit = 512M/' /etc/php/8.1/cli/php.ini
     sudo a2enmod rewrite
+    sudo a2enmod headers
     sudo a2enmod proxy_fcgi setenvif
     sudo systemctl restart php8.1-fpm
     sudo systemctl restart apache2
