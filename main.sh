@@ -65,21 +65,70 @@ confirm() {
     clear
 }
 
-# Function to flush iptables rules and allow port 22, 80, 443
-iptables_flush() {
-    #echo -e "\e[92mFlushing iptables rules and allowing ports 22, 80, 443...\e[0m"
-
-    # Flush existing rules
-    iptables -F && iptables -A INPUT -p tcp --dport 22 -j ACCEPT && iptables -A INPUT -p tcp --dport 80 -j ACCEPT && iptables -A INPUT -p tcp --dport 443 -j ACCEPT
-    
-    sleep 3
-    clear
+# Function to get the internal interfaces
+get_internal_interfaces() {
+    internal_interfaces=()
+    # Using 'ip addr' command to find interfaces other than the external one
+    interfaces=$(ip -o link show | awk -F ': ' '{print $2}')
+    for interface in $interfaces; do
+        if [ "$interface" != "$external_interface" ]; then
+            internal_interfaces+=("$interface")
+        fi
+    done
+    echo "${internal_interfaces[@]}"
 }
-#Fetch cloudflare IPs
-fetch_cloudflare_ips() {
+
+
+allow_cloudflare_ips() {
     url="https://www.cloudflare.com/ips-v4/"
-    ip_ranges=$(curl -s "$url")
-    echo "$ip_ranges"
+    cloudflare_ips=$(curl -s "$url")
+
+    # Allow Cloudflare IPs to access specified ports
+    while IFS= read -r ip_range; do
+        iptables -A INPUT -p tcp --dport 80 -s "$ip_range" -j ACCEPT
+        iptables -A INPUT -p tcp --dport 443 -s "$ip_range" -j ACCEPT
+        iptables -A INPUT -p tcp --dport 3306 -s "$ip_range" -j ACCEPT  # Added for port 3306 (MySQL)
+    done <<< "$cloudflare_ips"
+
+    # Drop other IPs for the specified ports
+    iptables -A INPUT -p tcp --dport 80 -j DROP
+    iptables -A INPUT -p tcp --dport 443 -j DROP
+    iptables -A INPUT -p tcp --dport 3306 -j DROP
+}
+
+# Applying iptables rules
+apply_iptables_rules() {
+
+    internal_interfaces=("$@")
+    # Allow loopback connections
+    sudo iptables -A INPUT -i lo -j ACCEPT
+    sudo iptables -A OUTPUT -o lo -j ACCEPT
+
+    # Allowing established and related incoming connections
+    sudo iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+    # Allowing established outgoing connections
+    sudo iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT
+
+    # Allow incoming SSH connections
+    sudo iptables -A INPUT -p tcp --dport 22 -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT && sudo iptables -A OUTPUT -p tcp --sport 22 -m conntrack --ctstate ESTABLISHED -j ACCEPT
+
+    # Allow internal to access the external
+    for int_interface in "${internal_interfaces[@]}"; do
+        sudo iptables -A FORWARD -i "$int_interface" -o "$external_interface" -j ACCEPT
+    done
+
+    # Dropping invalid packets
+    sudo iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
+
+    allow_cloudflare_ips
+}
+
+check_internet_connection() {
+    if ! ping -c 1 google.com &> /dev/null; then
+        echo "No internet connection. Exiting the script."
+        exit 1
+    fi
 }
 
 # Function to install RainLoop Webmail
@@ -89,8 +138,6 @@ install_rainloop() {
     get_domain_name  # Ask the user for the domain name
     
     confirm #Ask for cloudflare non proxied domain that point to IP
-    
-    #iptables_flush  # Flush iptables rules and allow essential ports
 
     echo -e "\e[92mCreating a directory for RainLoop installation...\e[0m"
     sudo mkdir /var/www/$domain_name
@@ -155,8 +202,6 @@ install_rainloop() {
 # Function to install Shopware
 install_shopware() {
     get_domain_name  # Ask the user for the domain name
-
-    #iptables_flush  # Flush iptables rules and allow essential ports
 
     confirm #Ask for cloudflare non proxied domain that point to IP
     
@@ -314,6 +359,29 @@ echo -e "\e[92mCloudflare access setup completed for $domain_name.\e[0m"
 
 }
 
+cloudflared(){
+    external_interface=$(get_external_interface)
+
+    if [ -z "$external_interface" ]; then
+        echo "Could not detect the external interface."
+        exit 1
+    fi
+
+    internal_interfaces=($(get_internal_interfaces))
+
+    if [ ${#internal_interfaces[@]} -eq 0 ]; then
+        echo "No internal interfaces detected."
+        exit 1
+    fi
+
+    apply_iptables_rules "${internal_interfaces[@]}"
+    sudo iptables-save
+    sudo iptables-legacy-save
+    clear
+
+    check_internet_connection
+}
+
 
 # Main script
 #Root permission check
@@ -327,6 +395,9 @@ if ! is_supported_ubuntu_version; then
     echo "This script is designed to run on Ubuntu 22.4 or above only."
     exit 1
 fi
+
+# Setup cloudflare IPs
+cloudflared
 
 PS3="Select an option: "
 options=("Install Shopware" "Install Shopware with RainLoop Webmail" "Quit")
