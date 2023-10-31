@@ -66,9 +66,7 @@ install_rainloop() {
     DocumentRoot /var/www/$domain_name
     ErrorLog \${APACHE_LOG_DIR}/$domain_name_error.log
     CustomLog \${APACHE_LOG_DIR}/$domain_name_access.log combined
-    SSLEngine on
-    SSLCertificateFile /etc/ssl/certs/selfsigned.crt
-    SSLCertificateKeyFile /etc/ssl/private/selfsigned.key
+
     <Directory /var/www/$domain_name>
         Options -Indexes +FollowSymLinks +MultiViews
         AllowOverride All
@@ -112,8 +110,8 @@ install_rainloop() {
     echo " Save te hostname"
     sleep 5
     while true; do
-    clear
-    read -p "Type 'yes' to confirm successful completion of all above mention steps" response
+    echo "Type 'yes' to confirm successful completion of all above mention steps"
+    read -p "" response
 
     if [ "$response" == "yes" ]; then
         break
@@ -371,7 +369,7 @@ install_shopware() {
     systemctl restart apache2
     clear
     
-    echo "Type 'yes' to confirm successful installation of Shopware 1st installer at https://$domain_name/shopware-installer.phar.php/install"
+    echo "Type 'yes' to confirm successful installation of Shopware 1st installer at https://$domain_name/shopware-installer.phar.php/install (untill you get Forbidden 403 error)"
     while true; do
     read -p "" response
     if [ "$response" == "yes" ]; then
@@ -403,7 +401,7 @@ install_shopware() {
     echo "Credentials have been saved in credentials.txt"
     sleep 5
     
-    echo -e "\e[92mChanges have been made. You can access the 2nd Shopware installer at https://$domain_name/installer\e[0m"
+    echo -e "\e[92mChanges have been made. You can access the 2nd Shopware installer at https://$domain_name/installer or just refresh the page\e[0m"
 
     while true; do
         read -p "After installing Shopware from the 2nd installer, press 'y': " user_input
@@ -415,7 +413,6 @@ install_shopware() {
 }
 
 # Main script
-
 main(){
 
     if ! is_root; then
