@@ -92,23 +92,23 @@ install_rainloop() {
     systemctl restart apache2
     
     echo "> Goto Cloudflare Zero Trust Dashoard https://one.dash.cloudflare.com >  Access > Tunnel > "
-    sleep 10
+    sleep 5
     echo " Select Tunnel name as Shopware > Configure Tunnel"
-    sleep 5
+    sleep 3
     echo "Select the Public Hostname > " 
-    sleep 5
+    sleep 3
     echo "Add Public Hostname >"
-    sleep 5
-    echo "Enter webmail in subdomain section >"
-    sleep 5
+    sleep 3
+    echo "Enter $domain_name >"
+    sleep 3
     echo " Select domain >"
-    sleep 5
+    sleep 2
     echo " Type HTTP >"
-    sleep 5
+    sleep 2
     echo " In url add localhost:8080 >"
-    sleep 5
+    sleep 2
     echo " Save te hostname"
-    sleep 5
+    sleep 2
     while true; do
     echo "Type 'yes' to confirm successful completion of all above mention steps"
     read -p "" response
