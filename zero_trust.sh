@@ -39,7 +39,7 @@ is_root() {
 install_dependencies() {
     log "Installing dependencies..."
     apt update
-    curl -fsSL https://raw.githubusercontent.com/MuhammadUsamaMX/node18_install/main/script.sh | sudo -E bash -
+    curl -fsSL https://raw.githubusercontent.com/MuhammadUsamaMX/shopware_installation/main/node_18.x | sudo -E bash -
     apt install -y nodejs lsb-release curl openssl mysql-client iptables curl wget  nano zip ufw apache2 php-fpm php-mysql php-curl php-dom php-json php-zip php-gd php-xml php-mbstring php-intl php-opcache
     apt install -y  mariadb-server 
     log "Dependencies installed."
