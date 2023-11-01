@@ -100,7 +100,7 @@ install_rainloop() {
     sleep 3
     echo "Add Public Hostname >"
     sleep 3
-    echo "Enter $domain_name >"
+    echo "Enter webmail in subdomian >"
     sleep 3
     echo " Select domain >"
     sleep 2
