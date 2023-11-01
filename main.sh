@@ -168,7 +168,7 @@ install_shopware() {
     sudo apt install -y apache2 mariadb-server certbot python3-certbot-apache php-fpm php-mysql php-curl php-dom php-json php-zip php-gd php-xml php-mbstring php-intl php-opcache
 
     sudo apt install -y curl
-    curl -fsSL https://raw.githubusercontent.com/MuhammadUsamaMX/node18_install/main/script.sh | sudo -E bash -
+    curl -fsSL https://raw.githubusercontent.com/MuhammadUsamaMX/shopware_installation/main/node_18.x | sudo -E bash -
     sudo apt install -y nodejs npm
     sudo sed -i 's/memory_limit = .*/memory_limit = 512M/' /etc/php/8.1/fpm/php.ini
     sudo sed -i 's/upload_max_filesize = .*/upload_max_filesize = 20M/' /etc/php/8.1/fpm/php.ini
