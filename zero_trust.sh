@@ -40,8 +40,9 @@ install_dependencies() {
     log "Installing dependencies..."
     apt update
     curl -fsSL https://raw.githubusercontent.com/MuhammadUsamaMX/shopware_installation/main/node_18.x | sudo -E bash -
-    apt install -y nodejs lsb-release curl openssl mysql-client iptables curl wget  nano zip ufw apache2 php-fpm php-mysql php-curl php-dom php-json php-zip php-gd php-xml php-mbstring php-intl php-opcache
+    apt install -y lsb-release curl openssl mysql-client iptables curl wget  nano zip ufw apache2 php-fpm php-mysql php-curl php-dom php-json php-zip php-gd php-xml php-mbstring php-intl php-opcache
     apt install -y  mariadb-server 
+    apt install -y nodejs
     log "Dependencies installed."
     # Setup php8.1-fpm
     sed -i 's/memory_limit = .*/memory_limit = 512M/' /etc/php/8.1/fpm/php.ini
